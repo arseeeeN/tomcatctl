@@ -1,0 +1,8 @@
+# Here's some documentation on how to use this file:
+# https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file
+
+[toolchain]
+# The default profile includes rustc, rust-std, cargo, rust-docs, rustfmt and clippy.
+# https://rust-lang.github.io/rustup/concepts/profiles.html
+profile = "default"
+channel = "1.82.0"
