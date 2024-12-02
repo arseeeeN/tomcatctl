@@ -68,6 +68,20 @@ jobs:
         cache: false
         rustflags: ''
 
+    - name: Setup Nushell
+      uses: hustcer/setup-nu@v3
+      with:
+        version: 0.98.0
+
+    - name: Release Binary
+      id: nu
+      run: nu .github/workflows/release-pkg.nu
+      env:
+        OS: ${{ matrix.os }}
+        REF: ${{ github.ref }}
+        TARGET: ${{ matrix.target }}
+        _EXTRA_: ${{ matrix.extra }}
+
     # WARN: Don't upgrade this action due to the release per asset issue.
     # See: https://github.com/softprops/action-gh-release/issues/445
     - name: Publish Archive
@@ -75,7 +89,7 @@ jobs:
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true
-        files: ${{ steps.tomcatctl.outputs.archive }}
+        files: ${{ steps.nu.outputs.archive }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
