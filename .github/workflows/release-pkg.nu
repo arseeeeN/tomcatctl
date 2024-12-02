@@ -40,7 +40,7 @@
 
 
 # The main binary file to be released
-let bin = 'nu'
+let bin = 'tomcatctl'
 let os = $env.OS
 let target = $env.TARGET
 # Repo source dir like `/home/runner/work/nushell/nushell`
