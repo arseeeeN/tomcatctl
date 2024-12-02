@@ -221,11 +221,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 }
 
 def 'cargo-build-nu' [] {
-    if $os == 'windows-latest' {
-        cargo build --release --all --target $target
-    } else {
-        cargo build --release --all --target $target --features=static-link-openssl
-    }
+    cargo build --release --all --target $target
 }
 
 # Print a horizontal line marker
