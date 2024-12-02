@@ -1,42 +1,103 @@
+name: Create Release Draft
+
 on:
   workflow_dispatch:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+*"]
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   release:
-    name: Release - ${{ matrix.platform.os-name }}
+    name: tomcatctl
+
     strategy:
+      fail-fast: false
       matrix:
-        platform:
-          - os-name: Linux-x86_64
-            runs-on: ubuntu-20.04
-            target: x86_64-unknown-linux-musl
-          - os-name: Linux-aarch64
-            runs-on: ubuntu-20.04
-            target: aarch64-unknown-linux-musl
-          - os-name: Windows-x86_64
-            runs-on: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os-name: macOS-x86_64
-            runs-on: macOS-latest
-            target: x86_64-apple-darwin
-          - os-name: macOS-aarch64
-            runs-on: macOS-latest
-            target: aarch64-apple-darwin
+        target:
+        - aarch64-apple-darwin
+        - x86_64-apple-darwin
+        - x86_64-pc-windows-msvc
+        - aarch64-pc-windows-msvc
+        - x86_64-unknown-linux-gnu
+        - x86_64-unknown-linux-musl
+        - aarch64-unknown-linux-gnu
+        - aarch64-unknown-linux-musl
+        extra: ['bin']
+        include:
+        - target: aarch64-apple-darwin
+          os: macos-latest
+        - target: x86_64-apple-darwin
+          os: macos-latest
+        - target: x86_64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+        - target: x86_64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+        - target: aarch64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+        - target: aarch64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+        - target: x86_64-unknown-linux-gnu
+          os: ubuntu-22.04
+        - target: x86_64-unknown-linux-musl
+          os: ubuntu-22.04
+        - target: aarch64-unknown-linux-gnu
+          os: ubuntu-22.04
+        - target: aarch64-unknown-linux-musl
+          os: ubuntu-22.04
 
+    runs-on: ${{matrix.os}}
 
-    runs-on: ${{ matrix.platform.runs-on }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v0
-        with:
-          command: ${{ matrix.platform.command }}
-          target: ${{ matrix.platform.target }}
-          args: "--locked --release"
-          strip: true
-      - name: Publish artifacts and release
-        uses: houseabsolute/actions-rust-release@v0
-        with:
-          executable-name: tomcatctl
-          target: ${{ matrix.platform.target }}
+    - uses: actions/checkout@v4
+
+    - name: Update Rust Toolchain Target
+      run: |
+        echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
+
+    - name: Setup Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
+      # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
+      with:
+        cache: false
+        rustflags: ''
+
+    # WARN: Don't upgrade this action due to the release per asset issue.
+    # See: https://github.com/softprops/action-gh-release/issues/445
+    - name: Publish Archive
+      uses: softprops/action-gh-release@v2.0.5
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      with:
+        draft: true
+        files: ${{ steps.tomcatctl.outputs.archive }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sha256sum:
+    needs: release
+    name: Create Sha256sum
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download Release Archives
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: >-
+        gh release download ${{ github.ref_name }}
+        --repo ${{ github.repository }}
+        --pattern '*'
+        --dir release
+    - name: Create Checksums
+      run: cd release && shasum -a 256 * > ../SHA256SUMS
+    - name: Publish Checksums
+      uses: softprops/action-gh-release@v2.0.5
+      with:
+        draft: true
+        files: SHA256SUMS
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
