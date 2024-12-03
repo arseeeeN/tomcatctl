@@ -7,13 +7,13 @@ use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use color_eyre::eyre::anyhow;
 use color_eyre::Result;
 use serde::Deserialize;
 use serde::Serialize;
-use signal_hook::consts::SIGINT;
-use signal_hook::iterator::Signals;
 use tabled::builder::Builder;
 use tabled::settings::Style;
 use xml::writer::XmlEvent;
@@ -174,12 +174,19 @@ impl Controller {
     }
 }
 
-fn handle_signals(mut child: Child) -> Result<()> {
-    let mut signals = Signals::new([SIGINT])?;
-    if signals.forever().next().is_some() {
-        child.kill()?;
-        child.wait_with_output()?;
-    }
+fn handle_signals(child: Child) -> Result<()> {
+    let child = Arc::new(Mutex::new(child));
+    let child_clone = child.clone();
+    ctrlc::set_handler(move || {
+        let mut child = child_clone
+            .lock()
+            .expect("Failed to lock mutex while trying to shutdown child process");
+        child.kill().expect("Failed to shutdown child process");
+    })?;
+    let mut child = child
+        .lock()
+        .expect("Failed to lock mutex while trying to shutdown child process");
+    child.wait()?;
     Ok(())
 }
 
