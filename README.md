@@ -1,8 +1,8 @@
-## tomcatctl
+# tomcatctl
 
 `tomcatlctl` is a tool for controlling Tomcat Apache from the command line and automating deployment of Java apps.
 
-#### How to use
+## How to use
 
 First you need to create a config for the deployment you want to create.
 
@@ -21,7 +21,7 @@ After that you can deploy your built Java project.
 tomcatctl run magnolia
 ```
 
-### Why does this exist?
+## Why does this exist?
 
 I wanted to have a way of cleanly deploying Java projects to Tomcat without having to rely on tools like IntelliJ to do it for me.
 After some investigation I couldn't find a single tool that does exactly what I want, so I built one myself.
