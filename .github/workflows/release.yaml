@@ -91,7 +91,7 @@ jobs:
         draft: true
         files: ${{ steps.tomcatctl.outputs.archive }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
   sha256sum:
     needs: release
@@ -100,7 +100,7 @@ jobs:
     steps:
     - name: Download Release Archives
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       run: >-
         gh release download ${{ github.ref_name }}
         --repo ${{ github.repository }}
@@ -114,4 +114,4 @@ jobs:
         draft: true
         files: SHA256SUMS
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
