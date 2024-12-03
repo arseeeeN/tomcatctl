@@ -199,7 +199,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
         cp -r ($'($dist)/*' | into glob) target/release/
         ls target/release/* | print
         cargo install cargo-wix --version 0.3.8
-        cargo wix --no-build --nocapture --package nu --output $wixRelease
+        cargo wix --no-build --nocapture --package tomcatctl --output $wixRelease
         # Workaround for https://github.com/softprops/action-gh-release/issues/280
         let archive = ($wixRelease | str replace --all '\' '/')
         print $'archive: ---> ($archive)';
