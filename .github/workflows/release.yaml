@@ -74,7 +74,7 @@ jobs:
         version: 0.98.0
 
     - name: Release Binary
-      id: nu
+      id: tomcatctl
       run: nu .github/workflows/release-pkg.nu
       env:
         OS: ${{ matrix.os }}
@@ -89,7 +89,7 @@ jobs:
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true
-        files: ${{ steps.nu.outputs.archive }}
+        files: ${{ steps.tomcatctl.outputs.archive }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
