@@ -2,7 +2,9 @@ use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
 #[command(name = "tomcatctl")]
-#[command(about = "A CLI for interacting with Apache Tomcat", long_about = None)]
+#[command(
+    about = "A CLI for interacting with Apache Tomcat\nTo get started create a profile using the \"config add\" subcommands"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: MainCommands,

@@ -24,6 +24,6 @@ tomcatctl run magnolia
 ## Why does this exist?
 
 I wanted to have a way of cleanly deploying Java projects to Tomcat without having to rely on tools like IntelliJ to do it for me.
-After some investigation I couldn't find a single tool that does exactly what I want, so I built one myself.
+I couldn't find a single tool that does exactly what I want, so I built one myself.
 This can also potentially be used in pipelines and containers to more cleanly deploy tomcat projects.
 

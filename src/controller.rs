@@ -35,19 +35,14 @@ impl Config {
 }
 
 pub struct Controller {
-    catalina_home: String,
+    catalina_home: PathBuf,
 }
 
 impl Controller {
     pub fn create() -> Result<Self> {
-        let catalina_home = std::env::var("CATALINA_HOME")?;
-        if Path::new(&catalina_home).exists() {
-            Ok(Self { catalina_home })
-        } else {
-            Err(anyhow!(
-                "Environment variable CATALINA_HOME needs to be set and exist"
-            ))
-        }
+        Ok(Self {
+            catalina_home: Controller::get_catalina_home()?,
+        })
     }
 
     pub fn run(&self, jpda: bool) -> Result<()> {
@@ -160,10 +155,11 @@ impl Controller {
     }
 
     fn get_catalina_sh(&self) -> Result<String> {
-        if Command::new("which").arg("catalina.sh").output().is_ok() {
-            Ok("catalina.sh".to_string())
+        if let Ok(catalina_sh) = Command::new("which").arg("catalina.sh").output() {
+            Ok(String::from_utf8(catalina_sh.stdout)
+                .expect("Failed to convert catalina.sh path into valid utf8 string"))
         } else {
-            let mut catalina_home = PathBuf::from_str(&self.catalina_home)?;
+            let mut catalina_home = self.catalina_home.clone();
             catalina_home.push("bin");
             catalina_home.push("catalina.sh");
             Ok(catalina_home
@@ -171,6 +167,23 @@ impl Controller {
                 .expect("Path contains invalid unicode")
                 .to_string())
         }
+    }
+
+    fn get_catalina_home() -> Result<PathBuf> {
+        if let Ok(catalina_home) = std::env::var("CATALINA_HOME") {
+            return Ok(PathBuf::from_str(&catalina_home).expect("Path contains invalid unicode"));
+        } else if let Ok(catalina_sh) = Command::new("which").arg("catalina.sh").output() {
+            let catalina_sh = String::from_utf8(catalina_sh.stdout)
+                .expect("Failed to convert catalina.sh path into valid utf8 string");
+            let mut catalina_home =
+                PathBuf::from_str(&catalina_sh).expect("Path contains invalid unicode");
+            catalina_home.pop();
+            catalina_home.pop();
+            return Ok(catalina_home);
+        }
+        Err(anyhow!(
+            "Couldn't find Tomcat installation or CATALINA_HOME pointing to one"
+        ))
     }
 }
 
@@ -205,6 +218,9 @@ impl ConfigFolder {
         let mut config_folder = PathBuf::from(std::env::var("HOME")?);
         config_folder.push(".config");
         config_folder.push("tomcatctl");
+        if !config_folder.exists() {
+            fs::create_dir_all(&config_folder)?
+        }
         Ok(Self(config_folder))
     }
     pub fn add_config(&self, name: String, config: &Config) -> Result<()> {
@@ -253,11 +269,14 @@ impl Deref for DeployFolder {
 }
 
 impl DeployFolder {
-    pub fn create(catalina_home: &str) -> Result<Self> {
-        let mut deploy_folder = PathBuf::from_str(catalina_home)?;
+    pub fn create(catalina_home: &Path) -> Result<Self> {
+        let mut deploy_folder = catalina_home.to_owned();
         deploy_folder.push("conf");
         deploy_folder.push("Catalina");
         deploy_folder.push("localhost");
+        if !deploy_folder.exists() {
+            fs::create_dir_all(&deploy_folder)?
+        }
         Ok(Self(deploy_folder))
     }
     pub fn create_deploy_file(self, filename: String) -> Result<File> {
