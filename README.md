@@ -1,6 +1,6 @@
 # tomcatctl
 
-`tomcatlctl` is a tool for controlling Tomcat Apache from the command line and automating deployment of Java apps.
+`tomcatlctl` is a tool for controlling Apache Tomcat from the command line and automating deployment of Java apps.
 
 ## How to use
 
