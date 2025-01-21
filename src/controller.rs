@@ -80,7 +80,7 @@ impl Controller {
             )?
             .next()
             .ok_or(anyhow!(format!(
-                "Failed to match the path: \"{:?}\"",
+                "Failed to match the path: \"{}\"",
                 artifact_path
                     .to_str()
                     .expect("Path contains invalid unicode")
