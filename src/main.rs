@@ -1,4 +1,5 @@
 use clap::Parser;
+use color_eyre::owo_colors::OwoColorize;
 use color_eyre::Result;
 
 mod cli;
@@ -10,8 +11,14 @@ use controller::*;
 fn main() -> Result<()> {
     color_eyre::install()?;
     let args = Cli::parse();
-
     let controller = Controller::create()?;
+    if let Err(err) = run_controller(args, controller) {
+        println!("{}", err.red());
+    }
+    Ok(())
+}
+
+fn run_controller(args: Cli, controller: Controller) -> Result<()> {
     match args.command {
         MainCommands::Run { jpda, config } => {
             controller.deploy(config)?;
