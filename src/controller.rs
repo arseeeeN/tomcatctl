@@ -51,7 +51,8 @@ impl Controller {
             command.arg("jpda");
         }
         command.arg("run");
-        handle_signals(command.spawn()?)?;
+        let child = command.spawn()?;
+        handle_signals(child)?;
         Ok(())
     }
 
@@ -79,7 +80,7 @@ impl Controller {
             )?
             .next()
             .ok_or(anyhow!(format!(
-                "Failed to match the path: \"{}\"",
+                "Failed to match the path: \"{:?}\"",
                 artifact_path
                     .to_str()
                     .expect("Path contains invalid unicode")
@@ -159,7 +160,9 @@ impl Controller {
     fn get_catalina_sh(&self) -> Result<String> {
         if let Ok(catalina_sh) = Command::new("which").arg("catalina.sh").output() {
             Ok(String::from_utf8(catalina_sh.stdout)
-                .expect("Failed to convert catalina.sh path into valid utf8 string"))
+                .expect("Failed to convert catalina.sh path into valid utf8 string")
+                .trim()
+                .to_string())
         } else {
             let mut catalina_home = self.catalina_home.clone();
             catalina_home.push("bin");
