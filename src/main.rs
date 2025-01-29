@@ -21,14 +21,17 @@ fn main() -> Result<()> {
 fn run_controller(args: Cli, controller: Controller) -> Result<()> {
     match args.command {
         MainCommands::Run { jpda, config } => {
+            controller.cleanup(config.clone())?;
             controller.deploy(config)?;
             controller.run(jpda)?;
         }
         MainCommands::Debug { config } => {
+            controller.cleanup(config.clone())?;
             controller.deploy(config)?;
             controller.debug()?;
         }
         MainCommands::Deploy { config } => {
+            controller.cleanup(config.clone())?;
             controller.deploy(config)?;
         }
         MainCommands::Config { command } => match command {

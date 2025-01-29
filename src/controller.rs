@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -115,6 +116,48 @@ impl Controller {
                     .expect("Path contains invalid unicode")
             )));
         }
+        Ok(())
+    }
+    pub fn cleanup(&self, config: String) -> Result<()> {
+        let deploy_folder = DeployFolder::create(&self.catalina_home)?;
+        if deploy_folder.exists() {
+            let config_folder = ConfigFolder::create()?;
+            let config = config_folder.load_config(config)?;
+            let filename = config.path.trim_matches('/').replace("/", "#") + ".xml";
+            let removed_files = deploy_folder
+                .read_dir()?
+                .filter_map(|entry| entry.ok())
+                .filter_map(|entry| {
+                    if *entry.file_name() != *filename {
+                        std::fs::remove_file(entry.path()).ok()?;
+                        Some(entry.path().file_stem()?.to_str()?.to_owned())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<HashSet<String>>();
+            let mut work_folder = self.catalina_home.to_owned();
+            work_folder.push("work");
+            work_folder.push("Catalina");
+            work_folder.push("localhost");
+            if work_folder.exists() {
+                work_folder
+                    .read_dir()?
+                    .filter_map(|entry| entry.ok())
+                    .filter(|entry| {
+                        removed_files.contains(
+                            entry
+                                .path()
+                                .file_stem()
+                                .expect("Couldn't extract file stem")
+                                .to_str()
+                                .expect("Path contains invalid unicode"),
+                        )
+                    })
+                    .for_each(|entry| _ = std::fs::remove_dir_all(entry.path()));
+            }
+        }
+
         Ok(())
     }
 
