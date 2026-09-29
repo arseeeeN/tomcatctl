@@ -1,7 +1,15 @@
 [package]
 name = "tomcatctl"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
+rust-version = "1.82"
+description = "Start Apache Tomcat from predefined configs instead of hand-written catalina.sh commands"
+license = "MIT"
+repository = "https://github.com/arseeeeN/tomcatctl"
+readme = "README.md"
+keywords = ["tomcat", "catalina", "java", "magnolia", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [".github/", "rust-toolchain.toml"]
 
 [dependencies]
 clap = { version = "4.5.21", features = ["derive"] }

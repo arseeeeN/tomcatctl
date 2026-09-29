@@ -19,29 +19,21 @@ jobs:
         target:
         - aarch64-apple-darwin
         - x86_64-apple-darwin
-        - x86_64-pc-windows-msvc
-        - aarch64-pc-windows-msvc
+        # Windows is disabled until tomcatctl supports it (it relies on catalina.sh)
+        # - x86_64-pc-windows-msvc
+        # - aarch64-pc-windows-msvc
         - x86_64-unknown-linux-gnu
         - x86_64-unknown-linux-musl
         - aarch64-unknown-linux-gnu
         - aarch64-unknown-linux-musl
-        extra: ['bin']
         include:
         - target: aarch64-apple-darwin
           os: macos-latest
         - target: x86_64-apple-darwin
           os: macos-latest
-        - target: x86_64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
         # - target: x86_64-pc-windows-msvc
-        #   extra: msi
         #   os: windows-latest
-        - target: aarch64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
         # - target: aarch64-pc-windows-msvc
-        #   extra: msi
         #   os: windows-latest
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-22.04
@@ -64,7 +56,6 @@ jobs:
 
     - name: Setup Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1.10.1
-      # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
         cache: false
         rustflags: ''
@@ -81,7 +72,6 @@ jobs:
         OS: ${{ matrix.os }}
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
-        _EXTRA_: ${{ matrix.extra }}
 
     # WARN: Don't upgrade this action due to the release per asset issue.
     # See: https://github.com/softprops/action-gh-release/issues/445
