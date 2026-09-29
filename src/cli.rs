@@ -48,6 +48,10 @@ pub enum ConfigCommands {
         name: String,
         path: String,
         project_path: String,
+        #[arg(long, help = "HTTP connector port (default: 8080)")]
+        http_port: Option<u16>,
+        #[arg(long, help = "Shutdown port (default: 8005)")]
+        shutdown_port: Option<u16>,
     },
     #[command(
         arg_required_else_help = true,

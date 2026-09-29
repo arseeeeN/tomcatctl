@@ -22,13 +22,13 @@ fn run_controller(args: Cli, controller: Controller) -> Result<()> {
     match args.command {
         MainCommands::Run { jpda, config } => {
             controller.cleanup(config.clone())?;
-            controller.deploy(config)?;
-            controller.run(jpda)?;
+            controller.deploy(config.clone())?;
+            controller.run(config, jpda)?;
         }
         MainCommands::Debug { config } => {
             controller.cleanup(config.clone())?;
-            controller.deploy(config)?;
-            controller.debug()?;
+            controller.deploy(config.clone())?;
+            controller.debug(config)?;
         }
         MainCommands::Deploy { config } => {
             controller.cleanup(config.clone())?;
@@ -39,8 +39,10 @@ fn run_controller(args: Cli, controller: Controller) -> Result<()> {
                 name,
                 path,
                 project_path,
+                http_port,
+                shutdown_port,
             } => {
-                controller.add_config(name, path, project_path)?;
+                controller.add_config(name, path, project_path, http_port, shutdown_port)?;
             }
             ConfigCommands::Remove { name } => {
                 controller.remove_config(name)?;
