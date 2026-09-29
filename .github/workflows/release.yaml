@@ -96,6 +96,7 @@ jobs:
 
   sha256sum:
     needs: release
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     name: Create Sha256sum
     runs-on: ubuntu-latest
     steps:
