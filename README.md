@@ -21,13 +21,14 @@ Prebuilt binaries are available on the [releases page](https://github.com/arseee
 First you need to create a config for the deployment you want to create.
 
 ```sh
-# tomcatctl config add <config-name> <deployment-path> <project-path> [--http-port <port>] [--shutdown-port <port>]
+# tomcatctl config add <config-name> <deployment-path> <project-path> [--http-port <port>] [--shutdown-port <port>] [--jpda-port <port>]
 #   - config-name: The name of the config, has no impact on the deployment
 #   - deployment-path: The context path under which the project will be deployed in Tomcat
 #   - project-path: The location of your project, the folder that contains target/*.war. Supports glob paths
 #     and is resolved relative to the directory you run tomcatctl in.
 #   - --http-port: HTTP connector port (default: 8080)
 #   - --shutdown-port: Tomcat shutdown port (default: 8005)
+#   - --jpda-port: JPDA debug port, used with `run --jpda` (default: 8000)
 tomcatctl config add magnolia /dev './*-webapp'
 ```
 
@@ -49,6 +50,7 @@ Press Ctrl+C to shut Tomcat down gracefully, press it again to kill it.
 | `tomcatctl debug <config>` | Deploy and start Tomcat in the built-in debugger (`jdb`) |
 | `tomcatctl deploy <config>` | Deploy without starting Tomcat |
 | `tomcatctl config add <name> <path> <project-path>` | Add a config |
+| `tomcatctl config set <name> <property> <value>` | Change a property of a config (alias: `edit`) |
 | `tomcatctl config list` | List all configs |
 | `tomcatctl config remove <name>` | Remove a config and its Tomcat instance |
 
@@ -58,14 +60,24 @@ Give each config its own ports and start them in separate terminals:
 
 ```sh
 tomcatctl config add author /author './*-webapp'
-tomcatctl config add public /public './*-webapp' --http-port 8081 --shutdown-port 8006
+tomcatctl config add public /public './*-webapp' --http-port 8081 --shutdown-port 8006 --jpda-port 8001
 
 tomcatctl run author --jpda
-JPDA_ADDRESS=localhost:8001 tomcatctl run public --jpda
+tomcatctl run public --jpda
 ```
 
-The JPDA port (default `localhost:8000`) is set with the `JPDA_ADDRESS` environment variable.
+The JPDA debug port only listens on `localhost`. To use a different address for a single run, set the `JPDA_ADDRESS` environment variable, which takes precedence over the config.
 All other environment variables are passed on to `catalina.sh` as well, e.g. `CATALINA_OPTS` for JVM options.
+
+### Changing a config
+
+Use `config set` with one of the properties `path`, `project-path`, `http-port`, `shutdown-port` or `jpda-port`:
+
+```sh
+tomcatctl config set public jpda-port 8002
+```
+
+You can also edit the TOML file in `~/.config/tomcatctl/` directly. Changes take effect on the next `run`.
 
 ### Where things are stored
 

@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Parser)]
 #[command(name = "tomcatctl", version)]
@@ -52,6 +52,18 @@ pub enum ConfigCommands {
         http_port: Option<u16>,
         #[arg(long, help = "Shutdown port (default: 8005)")]
         shutdown_port: Option<u16>,
+        #[arg(long, help = "JPDA debug port, used with --jpda (default: 8000)")]
+        jpda_port: Option<u16>,
+    },
+    #[command(
+        arg_required_else_help = true,
+        about = "Change a property of a deployment config",
+        alias = "edit"
+    )]
+    Set {
+        name: String,
+        property: ConfigProperty,
+        value: String,
     },
     #[command(
         arg_required_else_help = true,
@@ -61,4 +73,18 @@ pub enum ConfigCommands {
     Remove { name: String },
     #[command(about = "List all valid deployment configs", alias = "ls")]
     List,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ConfigProperty {
+    #[value(help = "Context path under which the project is deployed")]
+    Path,
+    #[value(alias = "project_path", help = "Location of the project with target/*.war")]
+    ProjectPath,
+    #[value(alias = "http_port", help = "HTTP connector port")]
+    HttpPort,
+    #[value(alias = "shutdown_port", help = "Shutdown port")]
+    ShutdownPort,
+    #[value(alias = "jpda_port", help = "JPDA debug port, used with --jpda")]
+    JpdaPort,
 }

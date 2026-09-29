@@ -1,6 +1,6 @@
 [package]
 name = "tomcatctl"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.82"
 description = "Start Apache Tomcat from predefined configs instead of hand-written catalina.sh commands"

@@ -42,8 +42,23 @@ fn run_controller(args: Cli, controller: Controller) -> Result<()> {
                 project_path,
                 http_port,
                 shutdown_port,
+                jpda_port,
             } => {
-                controller.add_config(name, path, project_path, http_port, shutdown_port)?;
+                controller.add_config(
+                    name,
+                    path,
+                    project_path,
+                    http_port,
+                    shutdown_port,
+                    jpda_port,
+                )?;
+            }
+            ConfigCommands::Set {
+                name,
+                property,
+                value,
+            } => {
+                controller.set_config(name, property, value)?;
             }
             ConfigCommands::Remove { name } => {
                 controller.remove_config(name)?;

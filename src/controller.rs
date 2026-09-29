@@ -21,6 +21,8 @@ use tabled::settings::Style;
 use xml::EmitterConfig;
 use xml::writer::XmlEvent;
 
+use crate::cli::ConfigProperty;
+
 #[derive(Serialize, Deserialize)]
 struct Config {
     path: String,
@@ -29,6 +31,8 @@ struct Config {
     http_port: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     shutdown_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    jpda_port: Option<u16>,
 }
 
 impl Config {
@@ -45,6 +49,10 @@ impl Config {
 
     fn shutdown_port(&self) -> u16 {
         self.shutdown_port.unwrap_or(8005)
+    }
+
+    fn jpda_port(&self) -> u16 {
+        self.jpda_port.unwrap_or(8000)
     }
 }
 
@@ -65,6 +73,11 @@ impl Controller {
         let mut command = Command::new(self.get_catalina_sh()?);
         command.env("CATALINA_BASE", catalina_base.as_path());
         if jpda {
+            // An explicitly set JPDA_ADDRESS takes precedence over the config.
+            // Only bind to localhost by default, an exposed JDWP port allows remote code execution.
+            if std::env::var_os("JPDA_ADDRESS").is_none() {
+                command.env("JPDA_ADDRESS", format!("localhost:{}", cfg.jpda_port()));
+            }
             command.arg("jpda");
         }
         command.arg("run");
@@ -181,6 +194,7 @@ impl Controller {
         project_path: String,
         http_port: Option<u16>,
         shutdown_port: Option<u16>,
+        jpda_port: Option<u16>,
     ) -> Result<()> {
         let config_folder = ConfigFolder::create()?;
         let config = Config {
@@ -188,9 +202,25 @@ impl Controller {
             project_path,
             http_port,
             shutdown_port,
+            jpda_port,
         };
         config_folder.add_config(name.clone(), &config)?;
         println!("Successfully added config file {name}.toml");
+        Ok(())
+    }
+
+    pub fn set_config(&self, name: String, property: ConfigProperty, value: String) -> Result<()> {
+        let config_folder = ConfigFolder::create()?;
+        let mut config = config_folder.load_config(name.clone())?;
+        match property {
+            ConfigProperty::Path => config.path = value,
+            ConfigProperty::ProjectPath => config.project_path = value,
+            ConfigProperty::HttpPort => config.http_port = Some(parse_port(&value)?),
+            ConfigProperty::ShutdownPort => config.shutdown_port = Some(parse_port(&value)?),
+            ConfigProperty::JpdaPort => config.jpda_port = Some(parse_port(&value)?),
+        }
+        config_folder.save_config(name.clone(), &config)?;
+        println!("Successfully updated config file {name}.toml");
         Ok(())
     }
 
@@ -208,7 +238,14 @@ impl Controller {
     pub fn list_configs(&self) -> Result<()> {
         let config_folder = ConfigFolder::create()?;
         let mut builder = Builder::default();
-        builder.push_record(vec!["Name", "Path", "Project Path", "HTTP Port", "Shutdown Port"]);
+        builder.push_record(vec![
+            "Name",
+            "Path",
+            "Project Path",
+            "HTTP Port",
+            "Shutdown Port",
+            "JPDA Port",
+        ]);
         config_folder
             .get_file_paths()
             .iter()
@@ -225,12 +262,14 @@ impl Controller {
                 let config = entry.1;
                 let http_port = config.http_port().to_string();
                 let shutdown_port = config.shutdown_port().to_string();
+                let jpda_port = config.jpda_port().to_string();
                 builder.push_record(vec![
                     name,
                     &config.path,
                     &config.project_path,
                     &http_port,
                     &shutdown_port,
+                    &jpda_port,
                 ]);
             });
         println!("{}", builder.build().with(Style::rounded()));
@@ -267,6 +306,13 @@ impl Controller {
         Err(anyhow!(
             "Couldn't find Tomcat installation or CATALINA_HOME pointing to one"
         ))
+    }
+}
+
+fn parse_port(value: &str) -> Result<u16> {
+    match value.parse::<u16>() {
+        Ok(port) if port != 0 => Ok(port),
+        _ => Err(anyhow!("Invalid port \"{value}\", expected a number from 1 to 65535")),
     }
 }
 
@@ -444,6 +490,13 @@ impl ConfigFolder {
         Ok(())
     }
 
+    pub fn save_config(&self, name: String, config: &Config) -> Result<()> {
+        let mut path = self.0.clone();
+        path.push(name + ".toml");
+        fs::write(path, toml::to_string_pretty(config)?)?;
+        Ok(())
+    }
+
     pub fn remove_config(&self, name: String) -> Result<()> {
         let mut path = self.0.clone();
         path.push(name + ".toml");
@@ -453,7 +506,12 @@ impl ConfigFolder {
 
     pub fn load_config(&self, config: String) -> Result<Config> {
         let mut path = self.0.clone();
-        path.push(config + ".toml");
+        path.push(config.clone() + ".toml");
+        if !path.exists() {
+            return Err(anyhow!(
+                "Config \"{config}\" doesn't exist, see \"tomcatctl config list\""
+            ));
+        }
         Ok(toml::from_str::<Config>(&fs::read_to_string(path)?)?)
     }
 
