@@ -70,37 +70,41 @@ jobs:
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
 
-    # WARN: Don't upgrade this action due to the release per asset issue.
-    # See: https://github.com/softprops/action-gh-release/issues/445
-    - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.5
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    - name: Upload Archive
+      uses: actions/upload-artifact@v4
       with:
-        draft: true
-        files: ${{ steps.tomcatctl.outputs.archive }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        name: tomcatctl-${{ matrix.target }}
+        path: ${{ steps.tomcatctl.outputs.archive }}
+        if-no-files-found: error
 
-  sha256sum:
+  # Creates the release once after all builds, so parallel jobs can't create duplicate drafts
+  # On manual runs it only collects the archives and checksums, the release itself needs a tag
+  publish:
     needs: release
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
-    name: Create Sha256sum
+    name: Publish
     runs-on: ubuntu-latest
     steps:
-    - name: Download Release Archives
+    - name: Download Archives
+      uses: actions/download-artifact@v4
+      with:
+        pattern: tomcatctl-*
+        merge-multiple: true
+        path: dist
+
+    - name: Create Checksums
+      run: cd dist && shasum -a 256 * > SHA256SUMS && cat SHA256SUMS
+
+    - name: Create Release Draft
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
       env:
         GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-      run: >-
-        gh release download ${{ github.ref_name }}
-        --repo ${{ github.repository }}
-        --pattern '*'
-        --dir release
-    - name: Create Checksums
-      run: cd release && shasum -a 256 * > ../SHA256SUMS
-    - name: Publish Checksums
-      uses: softprops/action-gh-release@v2.0.5
-      with:
-        draft: true
-        files: SHA256SUMS
-      env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        TAG: ${{ github.ref_name }}
+        REPO: ${{ github.repository }}
+      run: |
+        # GitHub allows several drafts for the same tag, so refuse instead of adding another one on re-runs
+        existing=$(gh api "repos/$REPO/releases" --paginate --jq ".[] | select(.tag_name == \"$TAG\") | .html_url")
+        if [ -n "$existing" ]; then
+          echo "::error::A release for $TAG already exists: $existing. Delete it and re-run this job."
+          exit 1
+        fi
+        gh release create "$TAG" dist/* --repo "$REPO" --draft --verify-tag --title "$TAG"
