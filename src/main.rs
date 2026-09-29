@@ -13,7 +13,8 @@ fn main() -> Result<()> {
     let args = Cli::parse();
     let controller = Controller::create()?;
     if let Err(err) = run_controller(args, controller) {
-        println!("{}", err.red());
+        eprintln!("{}", err.red());
+        std::process::exit(1);
     }
     Ok(())
 }

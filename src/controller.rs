@@ -8,8 +8,9 @@ use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
 use std::str::FromStr;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use color_eyre::Result;
 use color_eyre::eyre::anyhow;
@@ -269,21 +270,34 @@ impl Controller {
     }
 }
 
-fn handle_signals(child: Child) -> Result<()> {
-    let child = Arc::new(Mutex::new(child));
-    let child_clone = child.clone();
+fn handle_signals(mut child: Child) -> Result<()> {
+    let pid = child.id();
+    let stopping = Arc::new(AtomicBool::new(false));
+    let stopping_clone = stopping.clone();
+    // Handles SIGINT, SIGTERM and SIGHUP: the first one asks Tomcat to shut down gracefully,
+    // a second one kills it
     ctrlc::set_handler(move || {
-        let mut child = child_clone
-            .lock()
-            .expect("Failed to lock mutex while trying to shutdown child process");
-        child.kill().expect("Failed to shutdown child process");
+        let force = stopping_clone.swap(true, Ordering::SeqCst);
+        terminate(pid, force);
     })?;
-    let mut child = child
-        .lock()
-        .expect("Failed to lock mutex while trying to shutdown child process");
-    child.wait()?;
+    let status = child.wait()?;
+    if !status.success() && !stopping.load(Ordering::SeqCst) {
+        return Err(anyhow!("Tomcat exited with {status}"));
+    }
     Ok(())
 }
+
+#[cfg(unix)]
+fn terminate(pid: u32, force: bool) {
+    let signal = if force { libc::SIGKILL } else { libc::SIGTERM };
+    // SAFETY: kill only sends a signal to the given pid and has no memory safety requirements
+    unsafe {
+        libc::kill(pid as libc::pid_t, signal);
+    }
+}
+
+#[cfg(not(unix))]
+fn terminate(_pid: u32, _force: bool) {}
 
 struct CatalinaBase(PathBuf);
 
@@ -301,24 +315,45 @@ impl CatalinaBase {
         let path = Self::path_for(profile_name)?;
         let conf_dir = path.join("conf");
 
+        // Conf files and compiled JSPs are specific to a Tomcat version, so refresh them when the
+        // Tomcat installation changed. Bases without a marker predate it and are refreshed once.
+        let home_marker = conf_dir.join(".catalina_home");
+        let current_home = catalina_home
+            .canonicalize()
+            .unwrap_or_else(|_| catalina_home.to_path_buf());
+        let home_changed = conf_dir.exists()
+            && fs::read_to_string(&home_marker).ok().map(PathBuf::from) != Some(current_home.clone());
+        if home_changed {
+            println!(
+                "Tomcat installation changed to {}, refreshing conf and work folders of {profile_name}",
+                current_home.display()
+            );
+            let work_dir = path.join("work");
+            if work_dir.exists() {
+                fs::remove_dir_all(work_dir)?;
+            }
+        }
+
         fs::create_dir_all(conf_dir.join("Catalina").join("localhost"))?;
         fs::create_dir_all(path.join("logs"))?;
         fs::create_dir_all(path.join("temp"))?;
         fs::create_dir_all(path.join("work"))?;
         fs::create_dir_all(path.join("webapps"))?;
 
-        // Copy conf files from CATALINA_HOME on first init; skip server.xml since we manage it
+        // Copy conf files from CATALINA_HOME on first init or after a Tomcat change;
+        // skip server.xml since we manage it
         let home_conf = catalina_home.join("conf");
         if home_conf.exists() {
             for entry in fs::read_dir(&home_conf)?.flatten() {
                 if entry.file_name() != "server.xml" && entry.path().is_file() {
                     let dest = conf_dir.join(entry.file_name());
-                    if !dest.exists() {
+                    if home_changed || !dest.exists() {
                         fs::copy(entry.path(), dest)?;
                     }
                 }
             }
         }
+        fs::write(&home_marker, current_home.to_string_lossy().as_bytes())?;
 
         // Always (re)write server.xml so port changes in the config take effect
         fs::write(conf_dir.join("server.xml"), Self::server_xml(config))?;
